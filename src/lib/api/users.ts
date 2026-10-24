@@ -1,13 +1,14 @@
 import { api, type ApiResponse, type ApiListResponse } from './client';
+import type { OnboardingProfileData } from './onboarding';
 
 export interface MemberData {
   id: string;
   name: string;
   email: string;
-  role: 'ADMIN' | 'CANDIDATE';
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'EMPLOYEE' | 'CANDIDATE';
   isActive: boolean;
   createdAt: string;
-  onboardingProfile?: { firstName: string; lastName: string; city: string } | null;
+  onboardingProfile?: OnboardingProfileData | null;
   receivedInvite?: { designation: string; team: string; employmentType: string; joinedDate: string } | null;
   documents?: { status: string }[];
   contract?: { status: string } | null;

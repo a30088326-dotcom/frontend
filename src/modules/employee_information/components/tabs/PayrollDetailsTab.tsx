@@ -175,7 +175,14 @@ export default function PayrollDetailsTab({ data, update }: { data: any, update:
               <select className="w-full p-2 border border-slate-200 rounded-lg" value={data.bankDetails?.accountType || ''} onChange={e => handleBankChange('accountType', e.target.value)}>
                 <option value="">Select...</option>
                 <option value="Savings">Savings</option>
+                <option value="Checking">Checking</option>
                 <option value="Current">Current</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 mb-1 block" htmlFor="employee-bank-currency">Bank Currency</label>
+              <select id="employee-bank-currency" className="w-full p-2 border border-slate-200 rounded-lg" value={data.bankDetails?.currency || 'LKR'} onChange={e => handleBankChange('currency', e.target.value)}>
+                {currencies.map(currency => <option key={currency.id} value={currency.code}>{currency.code} - {currency.name}</option>)}
               </select>
             </div>
             <div>

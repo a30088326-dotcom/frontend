@@ -41,9 +41,12 @@ export default function AttendanceRecords() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [error, setError] = useState('');
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     const fetchRecords = async () => {
+      setLoading(true); setError('');
       try {
         const res = await attendanceApi.getRecords();
         if (res.data?.success) {
@@ -51,12 +54,13 @@ export default function AttendanceRecords() {
         }
       } catch (err) {
         console.error('Failed to fetch attendance records', err);
+        setError('Unable to load attendance records. Please retry.');
       } finally {
         setLoading(false);
       }
     };
     fetchRecords();
-  }, []);
+  }, [retry]);
 
   const monthOptions = Array.from(
     new Set(
@@ -231,7 +235,7 @@ export default function AttendanceRecords() {
                 <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                   Status
                 </div>
-                {['All', 'Pending', 'Approved', 'Draft'].map((option) => (
+                {['All', 'Present', 'Absent', 'Late', 'Half Day', 'On Leave', 'Pending', 'Approved', 'Draft'].map((option) => (
                   <button
                     key={option}
                     type="button"
@@ -254,7 +258,8 @@ export default function AttendanceRecords() {
         </div>
       </div>
 
-      {searchTerm.trim() && searchedEmployeeRecords.length > 0 && (
+      {error && <p role="alert" className="text-red-600">{error} <button className="underline" onClick={()=>setRetry(value=>value+1)}>Retry</button></p>}
+      {!error && searchTerm.trim() && searchedEmployeeRecords.length > 0 && (
         <div className="bg-white border border-indigo-100 rounded-xl p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -314,7 +319,7 @@ export default function AttendanceRecords() {
               ) : filteredRecords.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
-                    No attendance records found.
+                    {error ? 'Attendance records could not be loaded.' : 'No attendance records found.'}
                   </td>
                 </tr>
               ) : (

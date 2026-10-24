@@ -81,6 +81,7 @@ export interface LeaveApplicationData {
 }
 
 export interface ApplyLeavePayload {
+  attachmentUrl?: string;
   leaveTypeId: string;
   startDate: string;
   endDate: string;
@@ -130,6 +131,10 @@ export interface TeamDashboardData {
 }
 
 export interface PendingApprovalData {
+  attachmentUrl?:string;
+  medCertSubmitted?:boolean;
+  medCertRefNo?:string;
+  medCertIssuedDate?:string;
   id: string;
   status: string;
   startDate: string;

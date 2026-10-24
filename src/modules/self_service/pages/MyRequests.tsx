@@ -174,8 +174,9 @@ export default function MyRequests({ employee, loading: empLoading }: { employee
                               alert('Cannot delete missed attendance requests currently.');
                               return;
                             }
-                            if (!req.status?.includes('PENDING')) {
-                              alert('Only pending requests can be cancelled. Approved history is retained for audit.');
+                            const canCancel = req.status?.startsWith('PENDING') || (req.type !== 'Profile Change' && req.status === 'APPROVED');
+                            if (!canCancel) {
+                              alert('This request cannot be cancelled in its current status.');
                               return;
                             }
                             if (window.confirm('Are you sure you want to cancel this request?')) {
@@ -189,8 +190,8 @@ export default function MyRequests({ employee, loading: empLoading }: { employee
                               }
                             }
                           }}
-                          className={`text-sm font-bold transition-colors px-3 py-1.5 rounded-lg ${req.type === 'Missed Attendance' || !req.status?.includes('PENDING') ? 'text-slate-400 bg-slate-50 cursor-not-allowed' : 'text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100'}`}
-                          disabled={req.type === 'Missed Attendance' || !req.status?.includes('PENDING')}
+                          className="text-sm font-bold transition-colors px-3 py-1.5 rounded-lg text-rose-600 bg-rose-50 hover:bg-rose-100 disabled:text-slate-400 disabled:bg-slate-50 disabled:cursor-not-allowed"
+                          disabled={req.type === 'Missed Attendance' || !(req.status?.startsWith('PENDING') || (req.type !== 'Profile Change' && req.status === 'APPROVED'))}
                         >
                           Cancel
                         </button>

@@ -12,6 +12,7 @@ interface Props {
 
 export default function EntityModal({ entityType, initialData, onClose }: Props) {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState<any>(initialData || {});
   
   // Reference Data States
@@ -35,17 +36,20 @@ export default function EntityModal({ entityType, initialData, onClose }: Props)
             eimApi.getSalaryGrades(),
             eimApi.getStructures()
           ]);
-          setCorporateTitles(ctRes.data || []);
-          setSalaryGrades(sgRes.data || []);
-          setDepartments((deptRes.data || []).filter((d: any) => d.structureType === 'Department'));
+          setCorporateTitles(ctRes.data.data || []);
+          setSalaryGrades(sgRes.data.data || []);
+          setDepartments((deptRes.data.data || []).filter((d: any) => d.structureType === 'Department'));
         }
         if (entityType === 'geography') {
           const geoRes = await eimApi.getGeography();
-          setGeographies(geoRes.data || []);
+          setGeographies(geoRes.data.data || []);
+        }
+        if(entityType==='benefit'){
+          const grades=await eimApi.getSalaryGrades();setSalaryGrades(grades.data.data||[]);
         }
         if (entityType === 'location') {
           const cRes = await eimApi.getCompanies();
-          setCompanies(cRes.data || []);
+          setCompanies(cRes.data.data || []);
         }
         if (entityType === 'department') {
           const [cRes, lRes, pRes] = await Promise.all([
@@ -53,20 +57,21 @@ export default function EntityModal({ entityType, initialData, onClose }: Props)
             eimApi.getLocations(),
             eimApi.getStructures()
           ]);
-          setCompanies(cRes.data || []);
-          setLocations(lRes.data || []);
-          setDepartments(pRes.data || []);
+          setCompanies(cRes.data.data || []);
+          setLocations(lRes.data.data || []);
+          setDepartments(pRes.data.data || []);
         }
         if (entityType === 'costCentre') {
           const [cRes, pRes] = await Promise.all([
             eimApi.getCompanies(),
             eimApi.getStructures()
           ]);
-          setCompanies(cRes.data || []);
-          setDepartments((pRes.data || []).filter((d: any) => d.structureType === 'Department'));
+          setCompanies(cRes.data.data || []);
+          setDepartments((pRes.data.data || []).filter((d: any) => d.structureType === 'Department'));
         }
       } catch (e) {
         console.error('Failed to load references', e);
+        setError('Unable to load reference options. Close this form and try again.');
       }
     };
     fetchReferences();
@@ -113,32 +118,40 @@ export default function EntityModal({ entityType, initialData, onClose }: Props)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if(loading)return;
+    setError('');
     setLoading(true);
     try {
       const funcSuffix = entityType.charAt(0).toUpperCase() + entityType.slice(1);
       const isEdit = Boolean(initialData && initialData.id);
       
-      let payload = formData;
+      let payload = {...formData,isActive:formData.isActive===undefined?true:Boolean(formData.isActive)};
+      if(entityType==='salaryGrade'||entityType==='benefit')payload.currency=payload.currency||'LKR';
+      if(formData.effectiveStartDate&&formData.effectiveEndDate&&formData.effectiveEndDate<formData.effectiveStartDate)throw new Error('End date must be on or after the start date.');
+      if(entityType==='salaryGrade'&&Number(formData.minSalary)>Number(formData.maxSalary))throw new Error('Maximum salary cannot be lower than minimum salary.');
       if (entityType === 'department') {
-        payload = { ...formData, structureType: formData.structureType || 'Department' };
+        payload = { ...payload, structureType: formData.structureType || 'Department' };
       }
       
       if (isEdit) {
         let updateName = 'update' + funcSuffix;
         if (entityType === 'maritalStatus') updateName = 'updateMaritalStatuse';
+        if (entityType === 'department') updateName = 'updateStructure';
         const updateFunc = (eimApi as any)[updateName];
-        if (updateFunc) await updateFunc(initialData.id, payload);
+        if (!updateFunc) throw new Error('This record cannot be edited.');
+        await updateFunc(initialData.id, payload);
       } else {
         let createName = 'create' + funcSuffix;
         if (entityType === 'maritalStatus') createName = 'createMaritalStatuse';
         const createFunc = (eimApi as any)[createName];
-        if (createFunc) await createFunc(payload);
+        if (!createFunc) throw new Error('This record cannot be created.');
+        await createFunc(payload);
       }
       
       onClose(true);
     } catch (err: any) {
       console.error(err);
-      alert(err?.response?.data?.message || 'Failed to create entity.');
+      setError(err?.response?.data?.message || err?.message || 'Unable to save this record. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -146,15 +159,16 @@ export default function EntityModal({ entityType, initialData, onClose }: Props)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div role="dialog" aria-modal="true" aria-label={initialData?.id ? titles[entityType].replace(/^Add /,'Edit ') : titles[entityType]} className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-800">{titles[entityType]}</h3>
-          <button type="button" onClick={() => onClose(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+          <h3 className="text-lg font-bold text-slate-800">{initialData?.id ? titles[entityType].replace(/^Add /,'Edit ') : titles[entityType]}</h3>
+          <button type="button" disabled={loading} aria-label="Close form" onClick={() => onClose(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
             <X size={20} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 flex-1 overflow-y-auto">
+          {error&&<p role="alert" className="text-sm text-red-600">{error}</p>}
           
           {entityType === 'designation' && (
             <>
@@ -219,11 +233,13 @@ export default function EntityModal({ entityType, initialData, onClose }: Props)
 
           {entityType === 'benefit' && (
             <>
+              <fieldset className="p-3 border rounded-xl"><legend className="text-sm">Eligible salary grades</legend>{salaryGrades.map(grade=><label key={grade.id} className="flex items-center gap-2 text-sm py-1"><input type="checkbox" checked={(formData.eligibleSalaryGrades||[]).includes(grade.id)} onChange={e=>updateField('eligibleSalaryGrades',e.target.checked?[...(formData.eligibleSalaryGrades||[]),grade.id]:(formData.eligibleSalaryGrades||[]).filter((id:string)=>id!==grade.id))}/>{grade.name} ({grade.code})</label>)}</fieldset>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Benefit Category</label>
                   <select required value={formData.category || ''} onChange={e => updateField('category', e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
                     <option value="">Select Category</option>
+                    {formData.category&&!['Cash Benefit','Non-cash Benefit Category','Non-cash Benefit'].includes(formData.category)&&<option value={formData.category}>{formData.category}</option>}
                     <option value="Cash Benefit">Cash Benefit</option>
                     <option value="Non-cash Benefit Category">Non-cash Benefit Category</option>
                     <option value="Non-cash Benefit">Non-cash Benefit</option>
@@ -239,7 +255,7 @@ export default function EntityModal({ entityType, initialData, onClose }: Props)
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Default Amount</label>
-                  <input type="number" step="0.01" value={formData.defaultAmount || ''} onChange={e => updateField('defaultAmount', parseFloat(e.target.value))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
+                  <input type="number" step="0.01" value={formData.defaultAmount ?? ''} onChange={e => updateField('defaultAmount', e.target.value===''?null:Number(e.target.value))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Currency</label>
@@ -272,7 +288,7 @@ export default function EntityModal({ entityType, initialData, onClose }: Props)
             </div>
           )}
 
-          {entityType !== 'designation' && entityType !== 'geography' && (
+          {entityType !== 'designation' && (
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Code</label>
@@ -284,6 +300,17 @@ export default function EntityModal({ entityType, initialData, onClose }: Props)
               </div>
             </div>
           )}
+
+          {entityType==='corporateTitle'&&<label className="block text-sm">Hierarchy level<input aria-label="Corporate title level" type="number" min="0" value={formData.level??0} onChange={e=>updateField('level',Number(e.target.value))} className="input-field"/></label>}
+          {entityType==='salaryGrade'&&<div className="grid grid-cols-2 gap-4">
+            <label className="text-sm">Grade level<input aria-label="Salary grade level" type="number" min="0" value={formData.gradeLevel??0} onChange={e=>updateField('gradeLevel',Number(e.target.value))} className="input-field"/></label>
+            <label className="text-sm">Currency<input aria-label="Salary grade currency" value={formData.currency||'LKR'} onChange={e=>updateField('currency',e.target.value)} className="input-field"/></label>
+            <label className="text-sm">Minimum salary<input aria-label="Minimum salary" type="number" min="0" step="0.01" value={formData.minSalary??''} onChange={e=>updateField('minSalary',e.target.value===''?null:Number(e.target.value))} className="input-field"/></label>
+            <label className="text-sm">Maximum salary<input aria-label="Maximum salary" type="number" min="0" step="0.01" value={formData.maxSalary??''} onChange={e=>updateField('maxSalary',e.target.value===''?null:Number(e.target.value))} className="input-field"/></label>
+          </div>}
+
+          {!['location','geography','benefit'].includes(entityType)&&<label className="block text-sm">Description<textarea aria-label="Record description" value={formData.description||''} onChange={e=>updateField('description',e.target.value)} className="input-field" rows={2}/></label>}
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={formData.isActive===undefined||Boolean(formData.isActive)} onChange={e=>updateField('isActive',e.target.checked)}/>Active record</label>
 
           {entityType === 'company' && (
             <>

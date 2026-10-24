@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Plus, Clock, CheckCircle2, XCircle, Search, Filter } from 'lucide-react';
 import { leavesApi } from '../../../lib/api/leaves';
-import RequestTimeOffModal from '../../leave_management/components/modals/RequestTimeOffModal';
+import RequestTimeOffModal, { type LeaveRequestOptions } from '../../leave_management/components/modals/RequestTimeOffModal';
+import { RequestDetailsModal } from '../components/RequestDetailsModal';
 
 export default function MyLeave({ employee, loading: empLoading }: { employee?: any, loading: boolean }) {
   const [activeTab, setActiveTab] = useState<'balances' | 'history'>('balances');
@@ -9,6 +10,14 @@ export default function MyLeave({ employee, loading: empLoading }: { employee?: 
   const [balances, setBalances] = useState<any[]>([]);
   const [leaveHistory, setLeaveHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewingRequest, setViewingRequest] = useState<any | null>(null);
+  const [search, setSearch] = useState('');
+  const [pendingOnly, setPendingOnly] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const [requestError,setRequestError]=useState('');
+  const [requestMessage,setRequestMessage]=useState('');
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<any | null>(null);
 
   // Modal State
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -44,17 +53,18 @@ export default function MyLeave({ employee, loading: empLoading }: { employee?: 
           const accruedDays = Number(e.totalDays) || 0;
           return {
             type: e.leaveType?.name || 'Unknown',
-            entitlement: Math.round(yearlyLimit),
-            used: Math.round(Number(e.usedDays) || 0),
-            pending: Math.round(Number(e.pendingDays) || 0),
-            balance: Math.round(accruedDays - Number(e.usedDays || 0) - Number(e.pendingDays || 0) + Number(e.carryForwardDays || 0))
+            entitlement: yearlyLimit,
+            used: Number(e.usedDays) || 0,
+            pending: Number(e.pendingDays) || 0,
+            balance: accruedDays - Number(e.usedDays || 0) - Number(e.pendingDays || 0) + Number(e.carryForwardDays || 0)
           };
         }));
       }
       
       if (appRes.data?.data) {
         setLeaveHistory(appRes.data.data.map((a: any) => ({
-          id: a.id.slice(0, 8).toUpperCase(),
+          id: a.id,
+          displayId: a.id.slice(0, 8).toUpperCase(),
           type: a.leaveType?.name || 'Leave',
           from: a.startDate,
           to: a.endDate,
@@ -67,11 +77,14 @@ export default function MyLeave({ employee, loading: empLoading }: { employee?: 
           startDate: a.startDate,
           endDate: a.endDate,
           totalDays: a.totalDays,
-          rejectedReason: a.rejectedReason
+          rejectedReason: a.rejectedReason,
+          attachmentUrl:a.attachmentUrl,halfDayType:a.halfDayType,coveringEmployee:a.coveringEmployee,
+          medCertSubmitted:a.medCertSubmitted,medCertRefNo:a.medCertRefNo,medCertIssuedDate:a.medCertIssuedDate
         })));
       }
     } catch (err) {
       console.error('Failed to fetch leave data', err);
+      setActionError('Unable to load leave data. Please retry.');
     } finally {
       setLoading(false);
     }
@@ -81,8 +94,9 @@ export default function MyLeave({ employee, loading: empLoading }: { employee?: 
     fetchData();
   }, []);
 
-  const handleSubmit = async () => {
-    if (!selectedLeaveType || selectedDates.length === 0) return alert('Please fill required fields');
+  const handleSubmit = async (options:LeaveRequestOptions={halfDayType:'NONE'}) => {
+    setRequestError('');setRequestMessage('');
+    if (!selectedLeaveType || selectedDates.length === 0) return setRequestError('Please select a leave type and date.');
     setIsSubmitting(true);
     
     // Sort dates
@@ -98,11 +112,11 @@ export default function MyLeave({ employee, loading: empLoading }: { employee?: 
     
     const startDateStr = formatLocalDate(sortedDates[0]);
     const endDateStr = formatLocalDate(sortedDates[sortedDates.length - 1]);
-    const totalDays = sortedDates.length;
+    const totalDays = options.halfDayType!=='NONE'?0.5:sortedDates.length;
     const span = Math.round((Date.UTC(sortedDates.at(-1)!.getFullYear(),sortedDates.at(-1)!.getMonth(),sortedDates.at(-1)!.getDate()) - Date.UTC(sortedDates[0].getFullYear(),sortedDates[0].getMonth(),sortedDates[0].getDate())) / 86400000) + 1;
-    if (span !== totalDays) {
+    if (span !== sortedDates.length) {
       setIsSubmitting(false);
-      return alert('Select consecutive dates for one request. Submit separate requests for non-consecutive dates.');
+      return setRequestError('Select consecutive dates for one request. Submit separate requests for non-consecutive dates.');
     }
     
     try {
@@ -112,16 +126,16 @@ export default function MyLeave({ employee, loading: empLoading }: { employee?: 
         endDate: endDateStr,
         totalDays,
         reason: reason.trim() || undefined,
-        halfDayType: 'NONE',
+        ...options,
         comments: reason,
       });
-      alert('Leave applied successfully!');
+      setRequestMessage('Leave request saved and sent to your reporting manager.');
       setShowRequestModal(false);
       setReason('');
       setSelectedDates([]);
       fetchData(); // Refresh data
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to apply leave');
+      setRequestError(err.response?.data?.message || 'Failed to apply leave');
     } finally {
       setIsSubmitting(false);
     }
@@ -141,14 +155,29 @@ export default function MyLeave({ employee, loading: empLoading }: { employee?: 
     </div>;
   }
 
-  const isMale = employee?.gender?.toLowerCase() === 'male';
+  const isMale = (employee?.personalDetails?.gender || employee?.gender)?.toLowerCase() === 'male';
+  const visibleHistory = leaveHistory.filter(request =>
+    (!pendingOnly || request.status?.startsWith('PENDING')) &&
+    (!search.trim() || `${request.id} ${request.type}`.toLowerCase().includes(search.trim().toLowerCase())));
+  const cancelRequest = async (request: any) => {
+    setCancellingId(request.id); setActionError('');
+    try {
+      await leavesApi.cancel(request.id, 'Cancelled by employee');
+      setCancelTarget(null);
+      await fetchData();
+    } catch (error: any) {
+      setActionError(error.response?.data?.message || 'Unable to cancel this request. Please try again.');
+    } finally { setCancellingId(null); }
+  };
   const displayBalances = balances.filter(b => {
     if (isMale && b.type.toLowerCase().includes('maternity')) return false;
     return true;
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24">
+      {actionError && <p role="alert" className="p-4 rounded-xl bg-red-50 text-red-700">{actionError}</p>}
+      {requestMessage && <p role="status" className="p-4 rounded-xl bg-green-50 text-green-700">{requestMessage}</p>}
       
       {/* Header & Apply Action */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -156,7 +185,7 @@ export default function MyLeave({ employee, loading: empLoading }: { employee?: 
           <h2 className="text-xl font-bold text-slate-800">My Leave</h2>
           <p className="text-slate-500 text-sm mt-1">Manage your leave entitlements, applications, and history.</p>
         </div>
-        <button onClick={() => setShowRequestModal(true)} className="btn-primary gap-2 whitespace-nowrap">
+        <button onClick={() => {setRequestError('');setShowRequestModal(true);}} className="btn-primary gap-2 whitespace-nowrap">
           <Plus size={18} /> Apply Leave
         </button>
       </div>
@@ -230,11 +259,13 @@ export default function MyLeave({ employee, loading: empLoading }: { employee?: 
                 <input
                   type="text"
                   placeholder="Search by ID or type..."
+                  value={search}
+                  onChange={event => setSearch(event.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                 />
               </div>
-              <button className="btn-secondary gap-2 text-sm bg-white border border-slate-200">
-                <Filter size={14} /> Filter
+              <button onClick={() => setPendingOnly(value => !value)} aria-pressed={pendingOnly} className="btn-secondary gap-2 text-sm bg-white border border-slate-200">
+                <Filter size={14} /> {pendingOnly ? 'Show all requests' : 'Pending only'}
               </button>
             </div>
             
@@ -251,10 +282,10 @@ export default function MyLeave({ employee, loading: empLoading }: { employee?: 
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {leaveHistory.map((req) => (
+                  {visibleHistory.map((req) => (
                     <tr key={req.id} className="hover:bg-slate-50 transition-colors">
                       <td className="p-4">
-                        <span className="font-mono font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md text-xs">{req.id}</span>
+                        <span className="font-mono font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md text-xs">{req.displayId}</span>
                       </td>
                       <td className="p-4 font-bold text-slate-800">{req.type}</td>
                       <td className="p-4 text-sm text-slate-600 font-medium">
@@ -273,18 +304,19 @@ export default function MyLeave({ employee, loading: empLoading }: { employee?: 
                       </td>
                       <td className="p-4">
                         <div className="flex gap-2 justify-end">
-                          <button className="text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100">
+                          <button onClick={() => setViewingRequest(req)} className="text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100">
                             View
                           </button>
-                          {req.status === 'Pending Approval' && (
-                            <button className="text-sm font-bold text-rose-600 hover:text-rose-800 transition-colors bg-rose-50 px-3 py-1.5 rounded-lg hover:bg-rose-100">
-                              Cancel
+                          {(req.status?.startsWith('PENDING') || req.status === 'APPROVED') && (
+                            <button disabled={cancellingId === req.id} onClick={() => { setActionError(''); setCancelTarget(req); }} className="text-sm font-bold text-rose-600 hover:text-rose-800 transition-colors bg-rose-50 px-3 py-1.5 rounded-lg hover:bg-rose-100">
+                              {cancellingId === req.id ? 'Cancelling…' : 'Cancel'}
                             </button>
                           )}
                         </div>
                       </td>
                     </tr>
                   ))}
+                  {visibleHistory.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-slate-500">No matching leave requests.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -292,8 +324,23 @@ export default function MyLeave({ employee, loading: empLoading }: { employee?: 
         )}
       </div>
 
+      <RequestDetailsModal request={viewingRequest} onClose={() => setViewingRequest(null)} />
+      {cancelTarget && <div role="dialog" aria-modal="true" aria-label="Cancel leave request" className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md space-y-4">
+          <h2 className="text-xl font-bold">Cancel leave request?</h2>
+          <p>{cancelTarget.type} · {formatDate(cancelTarget.from)} · {Number(cancelTarget.days)} day(s)</p>
+          <p className="text-slate-600">The request history will be retained and the reserved or used leave will be returned to your balance.</p>
+          {actionError && <p role="alert" className="text-red-700">{actionError}</p>}
+          <div className="flex justify-end gap-3">
+            <button disabled={!!cancellingId} onClick={() => setCancelTarget(null)} className="btn-secondary">Keep request</button>
+            <button disabled={!!cancellingId} onClick={() => cancelRequest(cancelTarget)} className="btn-primary">{cancellingId ? 'Cancelling…' : 'Confirm cancellation'}</button>
+          </div>
+        </div>
+      </div>}
       <RequestTimeOffModal
         showRequestModal={showRequestModal}
+        employeeId={employee?.id}
+        error={requestError}
         setShowRequestModal={setShowRequestModal}
         selectedLeaveType={selectedLeaveType}
         setSelectedLeaveType={setSelectedLeaveType}

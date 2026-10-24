@@ -64,7 +64,7 @@ export default function PersonalDetailsTab({ data, update }: { data: any, update
         </div>
         <div>
           <label className="text-xs font-bold text-slate-500 mb-1 block">Gender *</label>
-          <select className="w-full p-2 border border-slate-200 rounded-lg bg-white" value={data?.gender || ''} onChange={e => handleChange('gender', e.target.value)} required>
+          <select className="w-full p-2 border border-slate-200 rounded-lg bg-white" value={eimData.genders.find(g => g.id === data?.gender)?.name || data?.gender || ''} onChange={e => handleChange('gender', e.target.value)} required>
             <option value="">Select Gender</option>
             {eimData.genders.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
           </select>

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { DragEvent, ChangeEvent, ReactNode } from 'react';
 import { Upload, CheckCircle2, AlertCircle, Loader2, Clock, FileText } from 'lucide-react';
+import { ProtectedFileLink } from '../../../components/ProtectedFile';
 
 interface UploadedDocument {
   id: string;
@@ -82,9 +83,9 @@ export default function UploadZone({
               <FileText size={17} className="text-slate-400 mt-0.5 flex-shrink-0" />
               <div className="min-w-0 flex-1">
                 {doc.fileUrl ? (
-                  <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="block truncate text-sm font-medium text-blue-700 hover:underline">
+                  <ProtectedFileLink value={doc.fileUrl} className="block truncate text-sm font-medium text-blue-700 hover:underline">
                     {doc.fileName}
-                  </a>
+                  </ProtectedFileLink>
                 ) : <p className="truncate text-sm font-medium text-slate-700">{doc.fileName}</p>}
                 <p className="text-xs text-slate-400">{doc.fileSize} {doc.fileType ? `· ${doc.fileType}` : ''}</p>
                 {doc.status === 'REJECTED' && (

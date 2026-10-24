@@ -5,6 +5,8 @@ import { eimsApi } from '../../../lib/api/employee_information_audit';
 import { useAuth } from '../../../context/AuthContext';
 import { CustomEmployeeFields } from '../../assistant/Assistant';
 import WorkspaceScrollArea from '../../../components/WorkspaceScrollArea';
+import { usersApi, type MemberData } from '../../../lib/api/users';
+import OnboardingProfilePreview from '../components/OnboardingProfilePreview';
 
 type EmployeeSummary = {
   id: string; employeeNo?: string; department?: string; designation?: string;
@@ -25,18 +27,40 @@ export default function AdvancedEims() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [onboardingProfiles, setOnboardingProfiles] = useState<MemberData[]>([]);
+  const [selectedOnboarding, setSelectedOnboarding] = useState<MemberData>();
   const loadEmployees = async () => {
     setLoading(true);
-    try { const response = await eimsApi.getEmployees(); setEmployees(response.data.data || []); setError(''); }
+    try {
+      const response = await eimsApi.getEmployees();
+      setEmployees(response.data.data || []);
+      if (isAdmin) {
+        const profiles: MemberData[] = [];
+        let page = 1, totalPages = 1;
+        do {
+          const users = await usersApi.list({ page, limit: 100 });
+          profiles.push(...users.data.data.filter(member => member.onboardingProfile && !member.employee));
+          totalPages = users.data.meta.totalPages;
+          page++;
+        } while (page <= totalPages);
+        setOnboardingProfiles(profiles);
+      } else setOnboardingProfiles([]);
+      setError('');
+    }
     catch (err: any) { setError(err?.response?.data?.message || 'Unable to load employee information.'); }
     finally { setLoading(false); }
   };
-  useEffect(() => { void loadEmployees(); }, []);
+  useEffect(() => { void loadEmployees(); }, [isAdmin]);
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return employees;
     return employees.filter(employee => [displayName(employee), employee.employeeNo, employee.department, employee.designation, employee.user?.email].some(value => value?.toLowerCase().includes(query)));
   }, [employees, search]);
+
+  if (isAdmin && selectedOnboarding) return <div className="workspace-frame p-4 sm:p-6 w-full max-w-7xl mx-auto">
+    <button type="button" onClick={() => { setSelectedOnboarding(undefined); void loadEmployees(); }} className="mb-4 shrink-0 self-start inline-flex items-center gap-2 text-sm font-semibold text-slate-600"><ArrowLeft size={16} /> Back to employee directory</button>
+    <WorkspaceScrollArea label="Submitted onboarding details"><OnboardingProfilePreview member={selectedOnboarding} /></WorkspaceScrollArea>
+  </div>;
 
   if (creating || selectedId) return (
     <div className="workspace-frame p-4 sm:p-6 w-full max-w-7xl mx-auto">
@@ -59,7 +83,10 @@ export default function AdvancedEims() {
         {error && <div className="m-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div>}
         {loading ? <div className="p-8 text-center text-sm text-slate-500">Loading employee directory...</div> : <div className="divide-y divide-slate-100">
           {filtered.map(employee => <button key={employee.id} type="button" onClick={() => setSelectedId(employee.id)} className="flex w-full items-center gap-4 px-5 py-4 text-left transition hover:bg-blue-50/50"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700"><UserRound size={19} /></span><span className="min-w-0 flex-1"><span className="block font-semibold text-slate-800">{displayName(employee)}</span><span className="mt-0.5 block text-xs text-slate-500">{employee.employeeNo || 'No employee number'} · {employee.user?.email || 'No login email'}</span></span><span className="hidden min-w-40 text-sm text-slate-600 md:block">{employee.designation || '—'}<span className="block text-xs text-slate-400">{employee.department || '—'}</span></span><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{employee.organizationalRank || 'EMPLOYEE'}</span><span className="text-xs font-semibold text-blue-600">View details →</span></button>)}
-          {!filtered.length && <div className="p-8 text-center text-sm text-slate-500">No employees match your search.</div>}
+          {isAdmin && onboardingProfiles.filter(member => [member.email, member.onboardingProfile?.firstName, member.onboardingProfile?.lastName].some(value => value?.toLowerCase().includes(search.toLowerCase()))).map(member => <button key={member.id} type="button" onClick={() => setSelectedOnboarding(member)} className="flex w-full items-center gap-4 px-5 py-4 text-left hover:bg-amber-50">
+            <UserRound size={19} className="shrink-0 text-amber-600" /><span className="min-w-0 flex-1"><span className="block font-semibold text-slate-800">{member.onboardingProfile?.firstName} {member.onboardingProfile?.lastName}</span><span className="block text-xs text-slate-500">{member.email}</span></span><span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">Onboarding · View submitted details</span>
+          </button>)}
+          {!filtered.length && !onboardingProfiles.length && <div className="p-8 text-center text-sm text-slate-500">No employees match your search.</div>}
         </div>}
         </WorkspaceScrollArea>
       </div>

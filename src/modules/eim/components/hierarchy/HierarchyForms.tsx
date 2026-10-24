@@ -13,6 +13,7 @@ interface AddEditNodeFormProps {
 export function AddEditNodeForm({ node, parentId, hierarchyConfig, onClose, onSuccess }: AddEditNodeFormProps) {
   const isEdit = !!node;
   const [formData, setFormData] = useState({
+    ...node,
     name: node?.name || '',
     code: node?.code || '',
     structureType: node?.structureType || '',
@@ -20,7 +21,7 @@ export function AddEditNodeForm({ node, parentId, hierarchyConfig, onClose, onSu
     headPositionId: node?.headPositionId || '',
     effectiveStartDate: node?.effectiveStartDate || '',
     effectiveEndDate: node?.effectiveEndDate || '',
-    isActive: node ? node.isActive : true,
+    isActive: node ? Boolean(node.isActive) : true,
     parentId: node?.parentId || parentId || ''
   });
   
@@ -31,8 +32,11 @@ export function AddEditNodeForm({ node, parentId, hierarchyConfig, onClose, onSu
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if(loading)return;
+    setError('');
     setLoading(true);
     try {
+      if(formData.effectiveStartDate&&formData.effectiveEndDate&&formData.effectiveEndDate<formData.effectiveStartDate)throw new Error('End date must be on or after the start date.');
       if (isEdit) {
         await eimApi.updateStructure(node.id, formData);
       } else {
@@ -40,7 +44,7 @@ export function AddEditNodeForm({ node, parentId, hierarchyConfig, onClose, onSu
       }
       onSuccess();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Operation failed');
+      setError(err.response?.data?.message || err.message || 'Operation failed');
     } finally {
       setLoading(false);
     }
@@ -48,7 +52,7 @@ export function AddEditNodeForm({ node, parentId, hierarchyConfig, onClose, onSu
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg border border-slate-200 flex flex-col">
+      <div role="dialog" aria-modal="true" aria-label={isEdit?'Edit Unit':'Add Unit'} className="bg-white rounded-xl shadow-xl w-full max-w-lg border border-slate-200 flex flex-col">
         <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-xl">
           <h2 className="text-lg font-bold text-slate-800">{isEdit ? 'Edit Unit' : 'Add Unit'}</h2>
           <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200"><X size={18} /></button>

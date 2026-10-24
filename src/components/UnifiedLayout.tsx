@@ -23,20 +23,49 @@ interface UnifiedLayoutProps {
 // roles: who sees this item by default (when no permissions configured)
 // moduleId: permission key used to grant access via Access Control
 const NAV_STRUCTURE = [
-  { group: 'HR Assistant', items: [
-    { id: 'assistant', label: 'Employee Assistant', icon: <ClipboardList size={18} />, roles: ['ADMIN', 'EMPLOYEE', 'SUPER_ADMIN'], alwaysVisible: true },
-    { id: 'assistant-admin', label: 'Bot Studio', icon: <Settings size={18} />, roles: ['SUPER_ADMIN'] }
-  ] },
   {
-    group: 'Performance Management',
+    group: 'Enterprise Configuration',
     items: [
-      { id: 'performance', label: 'Performance', icon: <Target size={18} />, roles: ['ADMIN', 'EMPLOYEE', 'SUPER_ADMIN'], alwaysVisible: true }
+      { id: 'eim', label: 'EIM Admin', icon: <Database size={18} />, roles: ['ADMIN'], moduleId: 'eim_admin' }
+    ]
+  },
+  {
+    group: 'Employee Information',
+    items: [
+      { id: 'employee-information', label: 'Employee Information', icon: <Users size={18} />, roles: ['ADMIN'], moduleId: 'employee_information' }
+    ]
+  },
+  {
+    group: 'Attendance Management',
+    items: [
+      { id: 'attendance', label: 'Attendance & Roster', icon: <Clock size={18} />, roles: ['ADMIN'], moduleId: 'attendance_management' }
+    ]
+  },
+  {
+    group: 'Reporting Hierarchy',
+    items: [
+      { id: 'reporting-hierarchy', label: 'Reporting Hierarchy', icon: <Network size={18} />, roles: ['ADMIN', 'EMPLOYEE', 'SUPER_ADMIN'], moduleId: 'reporting_hierarchy' }
+    ]
+  },
+  {
+    group: 'Leave Management',
+    items: [
+      { id: 'leave-management', label: 'Leave Management', icon: <CalendarDays size={18} />, roles: ['ADMIN', 'EMPLOYEE'], moduleId: 'leave_management', requiresManager: true },
+      { id: 'supervisor', label: 'Team Leave Requests', icon: <CheckCircle2 size={18} />, roles: ['ADMIN', 'EMPLOYEE'], moduleId: 'leave_approval', requiresManager: true },
+      { id: 'team-attendance', label: 'Team Attendance', icon: <Clock size={18} />, roles: ['ADMIN', 'EMPLOYEE'], moduleId: 'leave_approval', requiresManager: true },
+      { id: 'executive-request-center', label: 'CEO Request Center', icon: <Briefcase size={18} />, roles: ['ADMIN', 'EMPLOYEE'], moduleId: 'leave_approval', requiresExecutive: true }
     ]
   },
   {
     group: 'System Settings',
     items: [
       { id: 'access-control', label: 'Access Control', icon: <Shield size={18} />, roles: ['SUPER_ADMIN'] }
+    ]
+  },
+  {
+    group: 'Performance Management',
+    items: [
+      { id: 'performance', label: 'Performance', icon: <Target size={18} />, roles: ['ADMIN', 'EMPLOYEE', 'SUPER_ADMIN'], alwaysVisible: true }
     ]
   },
   {
@@ -53,42 +82,16 @@ const NAV_STRUCTURE = [
     ]
   },
   {
-    group: 'Enterprise Configuration',
+    group: 'HR Assistant',
     items: [
-      { id: 'eim', label: 'EIM Admin', icon: <Database size={18} />, roles: ['ADMIN'], moduleId: 'eim_admin' }
-    ]
-  },
-  {
-    group: 'Employee Information',
-    items: [
-      { id: 'employee-information', label: 'Employee Information', icon: <Users size={18} />, roles: ['ADMIN'], moduleId: 'employee_information' }
-    ]
-  },
-  {
-    group: 'Reporting Hierarchy',
-    items: [
-      { id: 'reporting-hierarchy', label: 'Reporting Hierarchy', icon: <Network size={18} />, roles: ['ADMIN', 'EMPLOYEE', 'SUPER_ADMIN'], moduleId: 'reporting_hierarchy' }
+      { id: 'assistant', label: 'Employee Assistant', icon: <ClipboardList size={18} />, roles: ['ADMIN', 'EMPLOYEE', 'SUPER_ADMIN'], alwaysVisible: true },
+      { id: 'assistant-admin', label: 'Bot Studio', icon: <Settings size={18} />, roles: ['SUPER_ADMIN'] }
     ]
   },
   {
     group: 'Self Service',
     items: [
-      { id: 'self_service', label: 'Self Service', icon: <User size={18} />, roles: ['EMPLOYEE', 'ADMIN', 'SUPER_ADMIN'], moduleId: 'self_service', alwaysVisible: true }
-    ]
-  },
-  {
-    group: 'Leave Management',
-    items: [
-      { id: 'leave-management', label: 'Leave Management', icon: <CalendarDays size={18} />, roles: ['ADMIN', 'EMPLOYEE'], moduleId: 'leave_management', requiresManager: true },
-      { id: 'supervisor', label: 'Team Leave Requests', icon: <CheckCircle2 size={18} />, roles: ['ADMIN', 'EMPLOYEE'], moduleId: 'leave_approval', requiresManager: true },
-      { id: 'team-attendance', label: 'Team Attendance', icon: <Clock size={18} />, roles: ['ADMIN', 'EMPLOYEE'], moduleId: 'leave_approval', requiresManager: true },
-      { id: 'executive-request-center', label: 'CEO Request Center', icon: <Briefcase size={18} />, roles: ['ADMIN', 'EMPLOYEE'], requiresExecutive: true }
-    ]
-  },
-  {
-    group: 'Attendance Management',
-    items: [
-      { id: 'attendance', label: 'Attendance & Roster', icon: <Clock size={18} />, roles: ['ADMIN'], moduleId: 'attendance_management' }
+      { id: 'self_service', label: 'Self Service', icon: <User size={18} />, roles: ['EMPLOYEE'], moduleId: 'self_service' }
     ]
   },
 ];
@@ -102,11 +105,16 @@ export default function UnifiedLayout({ currentScreen, onNavigate, children }: U
   const { user, logout } = useAuth();
   const [isCompact, setCompact] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches);
   const [isSidebarOpen, setSidebarOpen] = useState(() => typeof window === 'undefined' || !window.matchMedia('(max-width: 760px)').matches);
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(NAV_STRUCTURE.map(g => g.group));
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(() => NAV_STRUCTURE.map(group => group.group));
   const [performanceExpanded, setPerformanceExpanded] = useState(() => window.location.pathname === '/performance');
   const [performanceSections, setPerformanceSections] = useState<Section[] | null>(null);
   const [performanceLoadError, setPerformanceLoadError] = useState(false);
   const [performanceActive, setPerformanceActive] = useState<Section>(() => performanceSectionFromHash(window.location.hash));
+
+  useEffect(() => {
+    const activeGroup = NAV_STRUCTURE.find(group => group.items.slice(1).some(item => item.id === currentScreen));
+    if (activeGroup) setExpandedGroups(previous => previous.includes(activeGroup.group) ? previous : [...previous, activeGroup.group]);
+  }, [currentScreen]);
 
   useEffect(() => {
     const sync = () => setPerformanceActive(performanceSectionFromHash(window.location.hash));
@@ -186,6 +194,12 @@ export default function UnifiedLayout({ currentScreen, onNavigate, children }: U
     // SUPER_ADMIN sees everything else
     if (user.role === 'SUPER_ADMIN') return true;
 
+    const configuredPermissions: any[] = (user as any).permissions || [];
+    if(user.role==='ADMIN' && item.moduleId && configuredPermissions.length) {
+      const grant=configuredPermissions.find(permission=>permission.moduleId===item.moduleId);
+      return Boolean(grant?.moduleAccess && grant?.canView);
+    }
+
     // A CEO/Owner is an executive reader across the organization, even though
     // their login is still stored as an employee account in the auth table.
     if ((user as any).isExecutive) return item.id !== 'access-control';
@@ -255,7 +269,7 @@ export default function UnifiedLayout({ currentScreen, onNavigate, children }: U
         </div>
 
         {/* Nav Groups */}
-        <div className="flex-1 overflow-y-auto py-6 px-4 space-y-8 scrollbar-hide">
+        <nav aria-label="Main modules" className="flex-1 overflow-y-auto py-6 px-4 space-y-8 scrollbar-hide">
           {NAV_STRUCTURE.map((group, idx) => {
             const visibleItems = group.items.filter(isItemVisible);
             if (visibleItems.length === 0) return null;
@@ -267,26 +281,20 @@ export default function UnifiedLayout({ currentScreen, onNavigate, children }: U
               );
 
             return (
-              <div key={idx} className="space-y-1">
-                {isSidebarOpen && (
-                  <button onClick={toggleGroup} className="w-full flex items-center justify-between px-3 py-2 mb-1 rounded-lg hover:bg-slate-200/50 transition-colors group/header">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover/header:text-slate-600">{group.group}</h4>
-                    <ChevronRight size={14} className={`text-slate-400 transition-transform ${isGroupOpen ? 'rotate-90' : ''}`} />
-                  </button>
-                )}
-                <AnimatePresence initial={false}>
-                  {(isGroupOpen || !isSidebarOpen) && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="space-y-1 overflow-hidden"
-                    >
+              <div key={idx} data-primary-module={visibleItems[0].id} className="space-y-2">
+                {isSidebarOpen && <button
+                  type="button" onClick={toggleGroup}
+                  aria-expanded={isGroupOpen}
+                  aria-controls={`navigation-group-${visibleItems[0].id}`}
+                  className="flex w-full items-center justify-between px-3 text-left text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-slate-600"
+                ><h4>{group.group}</h4><ChevronRight size={14} className={`transition-transform ${isGroupOpen ? 'rotate-90' : ''}`} /></button>}
+                {(isGroupOpen || !isSidebarOpen) && <div id={`navigation-group-${visibleItems[0].id}`} className="space-y-1">
                       {visibleItems.map(item => {
                         const isActive = currentScreen === item.id;
                         if (item.id === 'performance') return <div key="performance" className="space-y-1">
                           <button
                             type="button"
+                            data-module-id="performance"
                             onClick={() => { setPerformanceExpanded(value => !value); if (!isSidebarOpen) setSidebarOpen(true); }}
                             aria-expanded={performanceExpanded}
                             aria-controls="readyhr-performance-submodules"
@@ -309,6 +317,8 @@ export default function UnifiedLayout({ currentScreen, onNavigate, children }: U
                         return (
                           <button
                             key={item.id}
+                            data-module-id={item.id}
+                            aria-current={isActive ? 'page' : undefined}
                             onClick={() => { onNavigate(item.id as Screen); if (isCompact) setSidebarOpen(false); }}
                             title={!isSidebarOpen ? item.label : undefined}
                             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all relative group ${
@@ -331,13 +341,11 @@ export default function UnifiedLayout({ currentScreen, onNavigate, children }: U
                           </button>
                         );
                       })}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                </div>}
               </div>
             );
           })}
-        </div>
+        </nav>
 
         {/* User Footer */}
         <div className="p-4 border-t border-white/50 bg-white/30 backdrop-blur-md">
