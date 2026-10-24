@@ -58,8 +58,9 @@ export default function SupervisorDashboard({ onNavigate }: SupervisorDashboardP
     try {
       await leavesApi.approveOrReject(id, action, reason);
       await fetchData();
-    } catch {
+    } catch (error) {
       setActionError('Failed to process the request.');
+      throw error;
     }
   };
 

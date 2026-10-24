@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Download, Clock, Calendar, CheckCircle, Save, FileText, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, getDaysInMonth as getDays, getDay, addDays, getYear, getDate } from 'date-fns';
 import { api } from '../../../../lib/api/client';
+import { holidayDates } from '../../calendarImport';
 interface DayType {
   id: string;
   name: string;
@@ -24,8 +25,11 @@ const MONTHS = [
 const DAYS_OF_WEEK = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 export default function HolidayCalendarTab() {
-  const [years] = useState([2024, 2025, 2026, 2027]);
-  const [selectedYear, setSelectedYear] = useState(2026);
+  const currentYear = new Date().getFullYear();
+  const [years] = useState(Array.from({length:5},(_,index)=>currentYear-2+index));
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [configLoading, setConfigLoading] = useState(true);
+  const [loadedKey, setLoadedKey] = useState('');
   const [groups, setGroups] = useState<CalendarGroup[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>('');
   const [dayTypes, setDayTypes] = useState<DayType[]>([]);
@@ -61,44 +65,16 @@ export default function HolidayCalendarTab() {
       const newPaintedDays = { ...paintedDays };
       let importedCount = 0;
       
-      // Look for dates like YYYY-MM-DD or MM/DD/YYYY or DD-MM-YYYY
-      const dateRegex = /(\d{4}-\d{2}-\d{2})|(\d{2}\/\d{2}\/\d{4})|(\d{2}-\d{2}-\d{4})/g;
-      const matches = text.match(dateRegex);
+      const matches = holidayDates(text,selectedYear);
       
-      if (matches) {
-        matches.forEach(dateStr => {
-          try {
-            // standard YYYY-MM-DD
-            if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-              newPaintedDays[dateStr] = holidayType.id;
-              importedCount++;
-            } 
-            // MM/DD/YYYY or DD-MM-YYYY
-            else {
-              const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
-              if (parts.length === 3) {
-                // assume DD-MM-YYYY if dash, MM/DD/YYYY if slash for simple fallback, 
-                // but let's just create a valid date object and format to YYYY-MM-DD
-                let y, m, d;
-                if (parts[0].length === 4) { y = parts[0]; m = parts[1]; d = parts[2]; } // YYYY-MM-DD
-                else if (dateStr.includes('/')) { m = parts[0]; d = parts[1]; y = parts[2]; } // MM/DD/YYYY
-                else { d = parts[0]; m = parts[1]; y = parts[2]; } // DD-MM-YYYY
-                
-                const formattedDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-                newPaintedDays[formattedDate] = holidayType.id;
-                importedCount++;
-              }
-            }
-          } catch(e) {}
-        });
-      }
+      matches.forEach(dateStr => { newPaintedDays[dateStr] = holidayType.id; importedCount++; });
 
       if (importedCount > 0) {
         setPaintedDays(newPaintedDays);
         setActionSuccess(`Successfully imported ${importedCount} holidays!`);
         setTimeout(() => setActionSuccess(null), 3000);
       } else {
-        setActionError('No valid dates found in the file. Ensure dates are formatted like YYYY-MM-DD.');
+        setActionError(`No valid dates found for ${selectedYear}. Use YYYY-MM-DD, MM/DD/YYYY or DD-MM-YYYY.`);
       }
     };
 
@@ -122,6 +98,7 @@ export default function HolidayCalendarTab() {
   }, []);
 
   const fetchInitialData = async () => {
+    setConfigLoading(true);
     try {
       const [groupsRes, typesRes] = await Promise.all([
         api.get('/api/leave/calendar-groups'),
@@ -142,12 +119,17 @@ export default function HolidayCalendarTab() {
       }
     } catch (error) {
       console.error('Failed to load initial config', error);
+      setActionError('Unable to load calendar configuration. Please retry.');
+    } finally {
+      setConfigLoading(false);
     }
   };
 
   const handleLoadCalendar = async () => {
-    if (!selectedGroup) return;
+    if (!selectedGroup || !dayTypes.length || isLoading) return;
     setIsLoading(true);
+    setLoadedKey('');
+    setActionError(null);
     setPaintedDays({});
     
     try {
@@ -175,14 +157,18 @@ export default function HolidayCalendarTab() {
           setPaintedDays(prefilled);
         }
       }
+      setLoadedKey(`${selectedYear}:${selectedGroup}`);
     } catch (error) {
       console.error('Failed to load calendar', error);
+      setActionError('Unable to load this calendar. Please retry.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleSaveCalendar = async () => {
+    if (loadedKey!==`${selectedYear}:${selectedGroup}` || !selectedGroup || !Object.keys(paintedDays).length || isLoading) return;
+    setIsLoading(true);
     try {
       const daysArray = Object.keys(paintedDays).map(date => ({
         date,
@@ -203,10 +189,13 @@ export default function HolidayCalendarTab() {
     } catch (error) {
       console.error('Failed to save calendar', error);
       setActionError('Failed to save calendar.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleDayClick = (dateStr: string, e: React.MouseEvent) => {
+    if (isLoading || loadedKey!==`${selectedYear}:${selectedGroup}`) return;
     e.stopPropagation();
     const rect = (e.target as HTMLElement).getBoundingClientRect();
     setActivePopover({
@@ -253,14 +242,15 @@ export default function HolidayCalendarTab() {
 
   return (
     <div className="relative min-h-[calc(100vh-160px)] pb-24">
+      {configLoading ? <p role="status">Loading calendar configuration…</p> : (!groups.length || !dayTypes.length) && <div role="status" className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900">No holiday calendar is configured. Calendar groups and day types must be configured before loading or saving a calendar. No public holidays have been assumed.<button onClick={fetchInitialData} className="ml-3 underline">Retry configuration</button></div>}
       {/* Top Control Panel */}
       <div className="bg-white/60 p-6 rounded-[2rem] border border-white/50 backdrop-blur-md shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Year</label>
-            <select 
+            <select disabled={isLoading}
               value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              onChange={(e) => { setSelectedYear(Number(e.target.value)); setPaintedDays({}); setLoadedKey(''); }}
               className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500/20 outline-none"
             >
               {years.map(y => <option key={y} value={y}>{y}</option>)}
@@ -269,17 +259,19 @@ export default function HolidayCalendarTab() {
 
           <div className="flex flex-col gap-1">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Calendar Group</label>
-            <select 
+            <select disabled={isLoading}
               value={selectedGroup}
-              onChange={(e) => setSelectedGroup(e.target.value)}
+              onChange={(e) => { setSelectedGroup(e.target.value); setPaintedDays({}); setLoadedKey(''); }}
               className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500/20 outline-none min-w-[200px]"
             >
+              {!groups.length && <option value="">No calendar groups configured</option>}
               {groups.map(g => <option key={g.id} value={g.id}>{g.displayName}</option>)}
             </select>
           </div>
 
           <button 
             onClick={handleLoadCalendar}
+            disabled={configLoading||isLoading||!selectedGroup||!dayTypes.length}
             className="mt-5 btn-primary glass bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg hover:shadow-indigo-500/30 transition-all flex items-center gap-2"
           >
             <Calendar size={18} /> Load Calendar
@@ -291,20 +283,18 @@ export default function HolidayCalendarTab() {
             type="file" 
             ref={fileInputRef} 
             className="hidden" 
-            accept=".csv,.png,.jpg,.jpeg" 
+            accept=".csv,.txt"
             onChange={handleImport} 
           />
           <button 
             onClick={() => fileInputRef.current?.click()}
-            disabled={isLoading}
+            disabled={isLoading||loadedKey!==`${selectedYear}:${selectedGroup}`}
             className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-colors flex items-center gap-2 ${isLoading ? 'bg-blue-100 text-blue-400 cursor-not-allowed' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
           >
             {isLoading ? <span className="animate-spin text-blue-500">⏳</span> : <Download size={16} />}
-            {isLoading ? 'Scanning Image...' : 'Import'}
+            {isLoading ? 'Loading…' : 'Import'}
           </button>
-          <button className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm transition-colors flex items-center gap-2">
-            <Clock size={16} /> Daylight Saving
-          </button>
+          <span className="text-sm text-slate-500 flex items-center gap-2"><Clock size={16}/> Asia/Colombo (UTC+05:30)</span>
         </div>
       </div>
 
@@ -439,11 +429,9 @@ export default function HolidayCalendarTab() {
               </div>
             </div>
             <div className="flex gap-3">
-              <button className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors">
-                Edit Defaults
-              </button>
               <button 
                 onClick={handleSaveCalendar}
+                disabled={isLoading||loadedKey!==`${selectedYear}:${selectedGroup}`||!Object.keys(paintedDays).length}
                 className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all flex items-center gap-2"
               >
                 <Save size={18} /> Save Calendar

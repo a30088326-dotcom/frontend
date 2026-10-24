@@ -20,12 +20,13 @@ export default function InviteLanding({ onNavigate, inviteToken }: InviteLanding
   const [status, setStatus] = useState<'idle' | 'accepted' | 'declined'>('idle');
   const { setSession } = useAuth();
 
-  // Use provided token or demo token
-  const token = inviteToken ?? 'demo-token';
+  const token = inviteToken?.trim() || '';
 
   useEffect(() => {
     const fetchInvite = async () => {
       setLoading(true);
+      setInvite(null);setError('');setStatus('idle');
+      if(!token){setError('Invitation link is missing. Open the link in your invitation email.');setLoading(false);return;}
       try {
         const res = await invitesApi.getByToken(token);
         setInvite(res.data.data);
@@ -39,22 +40,7 @@ export default function InviteLanding({ onNavigate, inviteToken }: InviteLanding
         } else if (e.response?.status === 410) {
           setError('This invitation has expired.');
         } else {
-          // Demo mode: show mock invite if API not reachable
-          setInvite({
-            id: 'demo',
-            token,
-            email: 'sahan@email.com',
-            name: 'Sahan Dissanayake',
-            role: 'CANDIDATE',
-            employmentType: 'FULL_TIME',
-            designation: 'Backend Engineer',
-            team: 'Engineering',
-            joinedDate: '2025-08-01T00:00:00.000Z',
-            status: 'PENDING',
-            createdAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-            invitedBy: { id: '1', name: 'Asel Perera', email: 'admin@readyhr.com' },
-          });
+          setError('Unable to load your invitation. Check the connection and try again.');
         }
       } finally {
         setLoading(false);
@@ -90,7 +76,7 @@ export default function InviteLanding({ onNavigate, inviteToken }: InviteLanding
       await invitesApi.decline(token);
       setStatus('declined');
     } catch {
-      setStatus('declined'); // optimistic
+      setError('Unable to decline the invitation. Your response has not been saved. Please try again.');
     } finally {
       setActionLoading(false);
     }
@@ -115,6 +101,7 @@ export default function InviteLanding({ onNavigate, inviteToken }: InviteLanding
           <AlertCircle size={40} className="mx-auto mb-4 text-red-400" />
           <h2 className="text-xl font-bold mb-2" style={{ color: '#0f172a' }}>Invitation Error</h2>
           <p className="text-sm text-slate-500">{error}</p>
+          <button type="button" className="btn-secondary mt-4" onClick={()=>window.location.reload()}>Try again</button>
         </div>
       </div>
     );

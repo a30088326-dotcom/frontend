@@ -120,4 +120,8 @@ for (const section of ['basic', 'dependents', 'professional', 'sensitive', 'docu
   assert.equal(pane.props.resetKey, section);
   assert.equal(pane.props.children.at(-1), child);
 }
-console.log('PASS: employee, manager and CEO workspace bounds; all self-service and profile tabs');
+currentUser={id:'restricted-admin',role:'ADMIN',name:'Restricted admin',permissions:[{moduleId:'leave_management',moduleAccess:0,canView:0},{moduleId:'leave_approval',moduleAccess:0,canView:0},{moduleId:'eim_admin',moduleAccess:0,canView:0}]};
+const restricted=render(Layout,{currentScreen:'assistant',children:child,onNavigate(){}});
+for(const id of ['eim','employee-information','attendance','leave-management','supervisor','team-attendance','executive-request-center'])assert.equal(find(restricted,node=>node.props?.['data-module-id']===id),undefined,`Restricted admin sidebar exposes ${id}`);
+assert.ok(find(restricted,node=>node.props?.['data-module-id']==='assistant'));
+console.log('PASS: employee, manager and CEO workspace bounds; all self-service/profile tabs; explicit admin module denials also hide manager/executive sidebar links');

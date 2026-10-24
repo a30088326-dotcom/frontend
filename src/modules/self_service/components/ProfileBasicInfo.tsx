@@ -41,6 +41,10 @@ export default function ProfileBasicInfo({ employee, loading }: { employee: any,
             <p className="text-slate-800 font-medium">{personalDetails?.gender || 'N/A'}</p>
           </div>
           <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nationality</label>
+            <p className="text-slate-800 font-medium">{personalDetails?.nationality || 'N/A'}</p>
+          </div>
+          <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Date of Birth</label>
             <p className="text-slate-800 font-medium">{personalDetails?.dob || 'N/A'}</p>
           </div>
@@ -81,6 +85,10 @@ export default function ProfileBasicInfo({ employee, loading }: { employee: any,
                 <p className="text-slate-800 font-medium">{employee.contactDetails?.permanent?.city || 'N/A'}</p>
               </div>
               <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Postal Code</label>
+                <p className="text-slate-800 font-medium">{employee.contactDetails?.permanent?.postalCode || 'N/A'}</p>
+              </div>
+              <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Country</label>
                 <p className="text-slate-800 font-medium">{employee.contactDetails?.permanent?.country || 'N/A'}</p>
               </div>
@@ -109,6 +117,14 @@ export default function ProfileBasicInfo({ employee, loading }: { employee: any,
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Personal Mobile</label>
                 <p className="text-slate-800 font-medium">{employee.contactDetails?.residential?.personal?.mobile || 'N/A'}</p>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Alternate Phone</label>
+                <p className="text-slate-800 font-medium">{employee.contactDetails?.residential?.personal?.alternatePhone || 'N/A'}</p>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">LinkedIn</label>
+                <p className="text-slate-800 font-medium break-all">{employee.contactDetails?.linkedIn || 'N/A'}</p>
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Home Telephone</label>

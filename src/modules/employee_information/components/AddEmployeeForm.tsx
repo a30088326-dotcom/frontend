@@ -129,7 +129,8 @@ export default function AddEmployeeForm({
           linkedIn: profile.linkedIn || '',
           personal: {
             mobile: profile.phoneNumber || '',
-            email: profile.alternatePhone || ''
+            alternatePhone: profile.alternatePhone || '',
+            email: user.email || ''
           },
           official: {
             ...prev.contactDetails.official,
@@ -223,7 +224,7 @@ export default function AddEmployeeForm({
       effectiveEndDate: ''
     },
     contactDetails: {
-      personal: { mobile: '', email: '' },
+      personal: { mobile: '', alternatePhone: '', email: '' },
       official: { email: '', mobile: '', ext: '', workLocation: '' },
       permanent: { address: '', city: '', province: '', postalCode: '', country: '' },
       working: { address: '', city: '', province: '', postalCode: '', country: '', sameAsPermanent: false },
@@ -308,7 +309,7 @@ export default function AddEmployeeForm({
                 priority: emp.bankDetails[0].priority || 1,
                 effectiveFrom: '',
                 isActive: emp.bankDetails[0].isActive !== false,
-                accountName: emp.personalDetails?.fullName || ''
+                accountName: emp.bankDetails[0].accountHolderName || emp.personalDetails?.fullName || ''
               } : formData.payrollDetails.bankDetails
             },
             otherDetails: emp.otherDetails || []

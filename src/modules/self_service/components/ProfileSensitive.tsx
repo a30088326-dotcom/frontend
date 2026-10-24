@@ -24,6 +24,8 @@ export default function ProfileSensitive({ employee, loading }: { employee: any,
     branch: acc.branch || acc.branchName || 'Branch',
     accNumber: acc.accountNo || acc.accountNumber || 'N/A',
     accName: acc.accountHolderName || employee?.personalDetails?.fullName || 'N/A',
+    accountType: acc.accountType || 'N/A',
+    currency: acc.currency || 'N/A',
     status: acc.isActive ? 'Active' : 'Inactive'
   })) : [];
 
@@ -113,6 +115,10 @@ export default function ProfileSensitive({ employee, loading }: { employee: any,
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Account Holder</p>
                   <p className="font-medium text-slate-800 uppercase">{acc.accName}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Account Type / Currency</p>
+                  <p className="font-medium text-slate-800">{acc.accountType} / {acc.currency}</p>
                 </div>
               </div>
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, Trash2, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { eimsApi } from '../../../../lib/api/employee_information_audit';
+import { ProtectedFileLink } from '../../../../components/ProtectedFile';
 
 const API_ORIGIN =
   import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') ||
@@ -158,9 +159,9 @@ export default function AttachmentsTab({ employeeId }: { employeeId?: string }) 
                   {getStatusIcon(doc.status || 'Pending')} {doc.status || 'Pending'}
                 </span>
               </div>
-              <a href={resolveFileUrl(doc.filePath, doc.fileUrl)} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-blue-600 hover:underline">
+              <ProtectedFileLink value={resolveFileUrl(doc.filePath, doc.fileUrl)} className="text-xs font-semibold text-blue-600 hover:underline">
                 View File
-              </a>
+              </ProtectedFileLink>
             </div>
           </div>
         ))}

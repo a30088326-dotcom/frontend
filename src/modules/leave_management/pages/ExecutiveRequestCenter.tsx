@@ -60,6 +60,7 @@ export default function ExecutiveRequestCenter() {
     } catch (error) {
       console.error('Action failed', error);
       setActionError('Failed to process action. You may not be authorized.');
+      throw error;
     }
   };
 

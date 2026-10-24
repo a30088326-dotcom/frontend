@@ -19,9 +19,12 @@ export default function AttendanceDashboard() {
     }
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     const fetchStats = async () => {
+      setLoading(true); setError('');
       try {
         const res = await attendanceApi.getDashboardStats();
         if (res.data?.success) {
@@ -36,12 +39,13 @@ export default function AttendanceDashboard() {
         }
       } catch (err) {
         console.error('Failed to fetch stats', err);
+        setError('Unable to load attendance statistics. Please retry.');
       } finally {
         setLoading(false);
       }
     };
     fetchStats();
-  }, []);
+  }, [retry]);
 
   if (loading) {
     return (
@@ -50,6 +54,8 @@ export default function AttendanceDashboard() {
       </div>
     );
   }
+
+  if(error)return <div role="alert" className="p-8 text-red-600">{error} <button className="underline" onClick={()=>setRetry(value=>value+1)}>Retry</button></div>;
 
   return (
     <div className="p-8 space-y-8 bg-slate-50 min-h-[600px] rounded-2xl">

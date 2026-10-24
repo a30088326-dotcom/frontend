@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { X, Clock, CheckCircle2, XCircle, User } from 'lucide-react';
 import { leavesApi } from '../../../lib/api';
 import { ProfileChangeDetails } from './TeamProfileRequests';
+import { ProtectedFileLink } from '../../../components/ProtectedFile';
 
 interface RequestDetailsModalProps {
   request: any | null;
@@ -41,7 +42,7 @@ export function RequestDetailsModal({ request, onClose }: RequestDetailsModalPro
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+    <div role="dialog" aria-modal="true" aria-label="Request Details" className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <h2 className="text-xl font-bold text-slate-800">Request Details</h2>
@@ -102,6 +103,11 @@ export function RequestDetailsModal({ request, onClose }: RequestDetailsModalPro
               </div>
             )}
           </div>}
+
+          {(request.attachmentUrl||request.originalData?.attachmentUrl)&&<p className="mb-5"><ProtectedFileLink value={request.attachmentUrl||request.originalData.attachmentUrl} className="text-sm font-semibold text-blue-600 underline">View supporting document</ProtectedFileLink></p>}
+          {request.halfDayType&&request.halfDayType!=='NONE'&&<p className="mb-3 text-sm text-slate-600">Duration: {request.halfDayType==='FIRST_HALF'?'First half day':'Second half day'}</p>}
+          {request.coveringEmployee?.name&&<p className="mb-3 text-sm text-slate-600">Covering employee: {request.coveringEmployee.name}</p>}
+          {request.medCertRefNo&&<p className="mb-3 text-sm text-slate-600">Medical certificate reference: {request.medCertRefNo}</p>}
 
           <h3 className="text-lg font-bold text-slate-800 mb-4">Approval Timeline</h3>
           {loading ? (

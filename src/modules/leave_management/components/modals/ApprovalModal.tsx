@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CalendarDays, CheckCircle2, XCircle, AlertTriangle, Loader2, X, Check } from 'lucide-react';
 import type { PendingApprovalData } from '../../../../lib/api';
+import { ProtectedFileLink } from '../../../../components/ProtectedFile';
 
 export default function ApprovalModal({
   application,
@@ -15,23 +16,32 @@ export default function ApprovalModal({
   const [action, setAction] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async () => {
-    if (!action) return;
+    if (!action || loading) return;
+    setError('');
     setLoading(true);
-    await onAction(application.id, action, action === 'REJECTED' ? reason : undefined);
-    setLoading(false);
-    onClose();
+    try {
+      await onAction(application.id, action, action === 'REJECTED' ? reason : undefined);
+      onClose();
+    } catch (err: unknown) {
+      const failure = err as { response?: { data?: { message?: string } } };
+      setError(failure.response?.data?.message || 'The request was not processed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={() => { if (!loading) onClose(); }}>
       <motion.div
         initial={{ opacity: 0, scale: 0.92, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.92, y: 20 }}
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
         className="card"
+        role="dialog" aria-modal="true" aria-label="Review Leave Request"
         style={{ maxWidth: 480, width: '100%', padding: '2rem' }}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
       >
@@ -47,7 +57,7 @@ export default function ApprovalModal({
               <p className="text-xs text-slate-400">{application.applicant.name}</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-slate-100 transition-colors">
+          <button onClick={onClose} disabled={loading} aria-label="Close review" className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-slate-100 transition-colors">
             <X size={16} className="text-slate-400" />
           </button>
         </div>
@@ -81,6 +91,10 @@ export default function ApprovalModal({
         </div>
 
         {/* Clash Warning */}
+        {application.halfDayType&&application.halfDayType!=='NONE'&&<p className="mb-3 text-sm text-slate-600">{application.halfDayType==='FIRST_HALF'?'First half day':'Second half day'}</p>}
+        {application.coveringEmployee&&<p className="mb-3 text-sm text-slate-600">Covering employee: {application.coveringEmployee.name}</p>}
+        {application.attachmentUrl&&<p className="mb-4"><ProtectedFileLink value={application.attachmentUrl} className="text-sm font-semibold text-blue-600 underline">View supporting document</ProtectedFileLink></p>}
+        {application.medCertRefNo&&<p className="mb-3 text-sm text-slate-600">Certificate reference: {application.medCertRefNo}</p>}
         {application.clashWarning && (
           <div className="flex items-start gap-2.5 p-3 rounded-xl mb-4" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
             <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
@@ -96,6 +110,7 @@ export default function ApprovalModal({
         {/* Action buttons */}
         <div className="flex gap-2 mb-4">
           <button
+            disabled={loading}
             onClick={() => setAction('APPROVED')}
             className="flex-1 py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all"
             style={{
@@ -106,6 +121,7 @@ export default function ApprovalModal({
             <CheckCircle2 size={16} /> Approve
           </button>
           <button
+            disabled={loading}
             onClick={() => setAction('REJECTED')}
             className="flex-1 py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all"
             style={{
@@ -142,6 +158,7 @@ export default function ApprovalModal({
           )}
         </AnimatePresence>
 
+        {error && <p role="alert" className="mb-4 text-sm text-red-600">{error}</p>}
         {/* Submit */}
         <button
           onClick={handleSubmit}

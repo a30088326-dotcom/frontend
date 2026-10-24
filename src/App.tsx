@@ -129,12 +129,19 @@ function MainApp() {
   const isScreenAuthorized = (user: any, scr: Screen) => {
     if (!user) return false;
     if (scr === 'invite-landing') return true;
+    if(user.role==='CANDIDATE')return scr==='onboarding'||scr==='contract';
     if (scr === 'assistant-admin') return user.role === 'SUPER_ADMIN';
     if (scr === 'assistant') return ['SUPER_ADMIN', 'ADMIN', 'EMPLOYEE'].includes(user.role);
     if (scr === 'reporting-hierarchy') return ['SUPER_ADMIN', 'ADMIN', 'EMPLOYEE'].includes(user.role);
     // Staff share one hub; the API enforces own/team/company scope on every request.
     if (scr === 'performance') return ['SUPER_ADMIN', 'ADMIN', 'EMPLOYEE'].includes(user.role);
     if (user.role === 'SUPER_ADMIN') return true;
+    // Explicit admin grants also govern the manager/executive entry points below.
+    const configuredModules=SCREEN_MODULE_MAP[scr];
+    const configuredList=Array.isArray(configuredModules)?configuredModules:[configuredModules];
+    if(user.role==='ADMIN' && user.permissions?.length && configuredList.some(Boolean)) {
+      return configuredList.some(module=>user.permissions.some((p:any)=>p.moduleId===module&&Boolean(p.moduleAccess)&&Boolean(p.canView)));
+    }
     if (user.isExecutive) return !SUPER_ADMIN_ONLY_SCREENS.includes(scr);
     if (scr === 'dashboard' && (user.isExecutive || user.isManager)) return true;
 
@@ -164,7 +171,7 @@ function MainApp() {
         const p = user.permissions.find((p: any) => p.moduleId === requiredModule);
         return p && (p.moduleAccess === 1 || p.moduleAccess === true) && (p.canView === 1 || p.canView === true);
       });
-      if (hasAccess) return true;
+      return hasAccess;
     }
 
     // Role-based defaults
@@ -186,9 +193,10 @@ function MainApp() {
     if (currentUser.role === 'SUPER_ADMIN') return 'dashboard';
     if (currentUser.isExecutive || currentUser.isManager) return 'dashboard';
     if (currentUser.role === 'CANDIDATE') return 'onboarding';
+    if (currentUser.role === 'EMPLOYEE') return 'self_service';
 
     const permittedScreen = PERMISSION_SCREEN_ORDER.find(candidate => isScreenAuthorized(currentUser, candidate));
-    return permittedScreen || (currentUser.role === 'EMPLOYEE' ? 'self_service' : 'dashboard');
+    return permittedScreen || (currentUser.role === 'EMPLOYEE' ? 'self_service' : 'assistant');
   };
 
   useEffect(() => {
@@ -230,6 +238,10 @@ function MainApp() {
   const navigate = (s: Screen) => setScreen(s);
   const isUnauthorized = !isScreenAuthorized(user, screen);
   const employeeDashboard: Screen = user?.role === 'CANDIDATE' ? 'onboarding' : 'self_service';
+
+  // The effect above selects the permitted landing page after login/account changes.
+  // Do not flash an administrator-only 403 while that redirect is being applied.
+  if(isUnauthorized)return <div role="status" className="ambient-bg min-h-screen flex items-center justify-center">Opening your workspace…</div>;
 
   const renderScreen = () => {
     switch (screen) {

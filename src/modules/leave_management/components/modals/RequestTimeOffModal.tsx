@@ -2,6 +2,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Info, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
+import { useState,useEffect } from 'react';
+import { api } from '../../../../lib/api/client';
+import { eimsApi } from '../../../../lib/api/employee_information_audit';
+
+export interface LeaveRequestOptions {
+  halfDayType:'NONE'|'FIRST_HALF'|'SECOND_HALF';
+  coveringEmployeeId?:string;
+  attachmentUrl?:string;
+  medCertSubmitted?:boolean;
+  medCertRefNo?:string;
+  medCertIssuedDate?:string;
+}
 
 interface RequestTimeOffModalProps {
   showRequestModal: boolean;
@@ -13,7 +25,9 @@ interface RequestTimeOffModalProps {
   reason: string;
   setReason: (reason: string) => void;
   isSubmitting: boolean;
-  handleSubmit: () => void;
+  handleSubmit: (options?:LeaveRequestOptions) => void;
+  employeeId?:string;
+  error?:string;
   leaveTypes: any[];
   selectedEntitlement: any;
   projectedDeduction: number;
@@ -34,8 +48,38 @@ export default function RequestTimeOffModal({
   leaveTypes,
   selectedEntitlement,
   projectedDeduction,
-  leaveHistory
+  leaveHistory,
+  employeeId,
+  error
 }: RequestTimeOffModalProps) {
+  const [options,setOptions]=useState<LeaveRequestOptions>({halfDayType:'NONE'});
+  const [covering,setCovering]=useState<{id:string;name:string;employeeNo?:string}[]>([]);
+  const [validation,setValidation]=useState(''),[uploading,setUploading]=useState(false),[fileName,setFileName]=useState('');
+  const selectedType=leaveTypes.find(type=>type.id===selectedLeaveType);
+  const halfDay=Boolean(selectedType?.allowHalfDays)&&selectedDates.length===1?options.halfDayType:'NONE';
+  const requestedDays=halfDay==='NONE'?projectedDeduction:0.5;
+  const certificateRequired=Boolean(selectedType?.needMedicalCertificate)&&requestedDays>Number(selectedType.maxDaysWithoutMedCert||0);
+  useEffect(()=>{setOptions({halfDayType:'NONE'});setValidation('');setFileName('');},[showRequestModal,selectedLeaveType]);
+  useEffect(()=>{
+    let active=true;
+    if(showRequestModal&&selectedType?.requireCoveringEmp)api.get('/api/leaves/covering-employees').then(response=>{if(active)setCovering(response.data.data||[]);}).catch(()=>{if(active)setValidation('Unable to load covering employees. Close and reopen this form to retry.');});
+    return()=>{active=false;};
+  },[showRequestModal,selectedType?.requireCoveringEmp]);
+  const uploadSupporting=async(file?:File)=>{
+    if(!file)return;
+    if(!employeeId){setValidation('Save your employee profile before uploading a document.');return;}
+    if(file.size>10*1024*1024){setValidation('Each supporting document must be 10 MB or smaller.');return;}
+    setUploading(true);setValidation('');
+    try{const data=new FormData();data.append('files',file);const response=await eimsApi.uploadAttachments(employeeId,data);const saved=response.data.data?.[0];if(!saved?.fileUrl)throw new Error();setOptions(value=>({...value,attachmentUrl:saved.fileUrl,medCertSubmitted:Boolean(selectedType?.needMedicalCertificate)}));setFileName(file.name);}
+    catch{setValidation('Unable to upload the supporting document. Please retry.');}finally{setUploading(false);}
+  };
+  const submit=()=>{
+    setValidation('');
+    if(selectedType?.commentMandatory&&!reason.trim())return setValidation('A reason is required for this leave type.');
+    if(selectedType?.requireCoveringEmp&&!options.coveringEmployeeId)return setValidation('Select a covering employee.');
+    if((selectedType?.requireAttachment||certificateRequired)&&!options.attachmentUrl)return setValidation(certificateRequired?'Upload your medical certificate.':'Upload a supporting document.');
+    handleSubmit({...options,halfDayType:halfDay,medCertSubmitted:Boolean(certificateRequired&&options.attachmentUrl)});
+  };
 
   // Helper to get all dates between a start and end date
   const getDatesBetween = (start: string, end: string) => {
@@ -60,7 +104,7 @@ export default function RequestTimeOffModal({
     setReason('');
   };
 
-  const currentBalance = selectedEntitlement ? Math.round(
+  const currentBalance = selectedEntitlement ? (
     (Number(selectedEntitlement.totalDays) || 0)
     - Number(selectedEntitlement.usedDays || 0) 
     - Number(selectedEntitlement.pendingDays || 0) 
@@ -115,6 +159,12 @@ export default function RequestTimeOffModal({
                     ))}
                   </select>
                 </div>
+
+                {Boolean(selectedType?.allowHalfDays)&&selectedDates.length===1&&<label className="block space-y-2 text-sm font-semibold text-slate-600">Leave duration
+                  <select aria-label="Leave duration" value={halfDay} onChange={event=>setOptions(value=>({...value,halfDayType:event.target.value as LeaveRequestOptions['halfDayType']}))} className="input-field">
+                    <option value="NONE">Full day</option><option value="FIRST_HALF">First half day</option><option value="SECOND_HALF">Second half day</option>
+                  </select>
+                </label>}
 
                 <div className="space-y-2 flex flex-col items-center bg-slate-50 border border-slate-200 rounded-2xl p-4">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider self-start mb-2">Select Date Range</label>
@@ -195,14 +245,25 @@ export default function RequestTimeOffModal({
                   />
                 </div>
 
+                {Boolean(selectedType?.requireCoveringEmp)&&<label className="block space-y-2 text-sm font-semibold text-slate-600">Covering employee
+                  <select aria-label="Covering employee" value={options.coveringEmployeeId||''} onChange={event=>setOptions(value=>({...value,coveringEmployeeId:event.target.value}))} className="input-field"><option value="">Select a covering employee…</option>{covering.map(person=><option key={person.id} value={person.id}>{person.name}{person.employeeNo?' · '+person.employeeNo:''}</option>)}</select>
+                </label>}
+                {(Boolean(selectedType?.requireAttachment)||certificateRequired)&&<div className="space-y-3">
+                  <label className="block space-y-2 text-sm font-semibold text-slate-600">{certificateRequired?'Medical certificate':'Supporting document'}
+                    <input aria-label={certificateRequired?'Medical certificate':'Supporting document'} type="file" accept=".pdf,.png,.jpg,.jpeg" disabled={uploading||isSubmitting} onChange={event=>void uploadSupporting(event.target.files?.[0])} className="block w-full text-sm"/>
+                  </label>
+                  {uploading&&<p role="status" className="text-sm text-blue-600">Uploading document…</p>}{fileName&&<p className="text-sm text-green-700">Attached: {fileName}</p>}
+                  {certificateRequired&&<><label className="block text-sm text-slate-600">Certificate reference (optional)<input aria-label="Certificate reference" value={options.medCertRefNo||''} onChange={event=>setOptions(value=>({...value,medCertRefNo:event.target.value}))} className="input-field"/></label><label className="block text-sm text-slate-600">Certificate issue date (optional)<input aria-label="Certificate issue date" type="date" value={options.medCertIssuedDate||''} onChange={event=>setOptions(value=>({...value,medCertIssuedDate:event.target.value||undefined}))} className="input-field"/></label></>}
+                </div>}
+                {(validation||error)&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{validation||error}</p>}
                 <div className="pt-6">
                   <button 
-                    onClick={handleSubmit} 
-                    disabled={isSubmitting || !selectedLeaveType || selectedDates.length === 0}
+                    onClick={submit}
+                    disabled={isSubmitting || uploading || !selectedLeaveType || selectedDates.length === 0}
                     className="w-full btn-primary py-4 text-base shadow-xl shadow-blue-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     <CheckCircle2 size={20} />
-                    {isSubmitting ? 'Submitting...' : `Submit Request (${selectedDates.length} ${selectedDates.length === 1 ? 'day' : 'days'})`}
+                    {isSubmitting ? 'Submitting...' : `Submit Request (${requestedDays} ${requestedDays === 1 ? 'day' : 'days'})`}
                   </button>
                 </div>
               </div>
@@ -225,21 +286,21 @@ export default function RequestTimeOffModal({
                   <div className="border-t border-slate-200 pt-6">
                     <p className="text-slate-500 text-sm font-medium mb-1">Requested</p>
                     <p className="text-2xl font-black text-amber-500">
-                      - {projectedDeduction} <span className="text-sm font-bold text-amber-400">Days</span>
+                      - {requestedDays} <span className="text-sm font-bold text-amber-400">Days</span>
                     </p>
                   </div>
 
                   <div className="border-t border-slate-200 pt-6">
                     <p className="text-slate-500 text-sm font-medium mb-1">Projected Balance</p>
                     <p className="text-3xl font-black text-blue-600">
-                      {currentBalance - projectedDeduction} <span className="text-sm font-bold text-blue-400"> Days</span>
+                      {currentBalance - requestedDays} <span className="text-sm font-bold text-blue-400"> Days</span>
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-auto bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3">
                   <AlertCircle size={16} className="text-blue-500 shrink-0 mt-0.5" />
-                  <p className="text-xs font-medium text-blue-800">This request will deduct {projectedDeduction} days from your {selectedEntitlement?.leaveType?.name || 'allowance'}.</p>
+                  <p className="text-xs font-medium text-blue-800">This request will deduct {requestedDays} days from your {selectedEntitlement?.leaveType?.name || 'allowance'}.</p>
                 </div>
               </div>
             </div>

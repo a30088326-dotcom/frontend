@@ -142,10 +142,10 @@ export default function LeaveTypesConfig() {
                   {t.category} • {t.unit} • {t.paymentType}
                 </div>
                 <div className="flex gap-2 text-[10px] text-slate-400">
-                  {t.allowFullDay && <span>Full-Day</span>}
-                  {t.allowHalfDays && <span>Half-Day</span>}
-                  {t.showReason && <span>Needs Reason</span>}
-                  {t.requireAttachment && <span>Needs Doc</span>}
+                  {Boolean(t.allowFullDay) && <span>Full-Day</span>}
+                  {Boolean(t.allowHalfDays) && <span>Half-Day</span>}
+                  {Boolean(t.showReason) && <span>Needs Reason</span>}
+                  {Boolean(t.requireAttachment) && <span>Needs Doc</span>}
                 </div>
               </div>
             ))}

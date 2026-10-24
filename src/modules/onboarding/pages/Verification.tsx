@@ -5,6 +5,7 @@ import {
   ZoomIn, Loader2, ChevronDown, Send, LogIn
 } from 'lucide-react';
 import { documentsApi, usersApi } from '../../../lib/api';
+import { useProtectedFile, ProtectedFileLink } from '../../../components/ProtectedFile';
 import type { Screen } from '../../../types';
 
 interface VerificationProps {
@@ -102,6 +103,7 @@ export default function Verification({ onNavigate }: VerificationProps) {
   
   const [docs, setDocs] = useState<any[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
+  const preview=useProtectedFile(selectedDoc?.fileUrl);
   
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -115,8 +117,16 @@ export default function Verification({ onNavigate }: VerificationProps) {
   useEffect(() => {
     const fetchCandidates = async () => {
       try {
-        const res = await usersApi.list({ role: 'CANDIDATE' });
-        const cands = res.data.data;
+        const all=[];
+        let page=1,totalPages=1;
+        do {
+          const res=await usersApi.list({page,limit:100});
+          all.push(...res.data.data);
+          totalPages=res.data.meta?.totalPages||1;
+          page++;
+        }while(page<=totalPages);
+        // Activation must not hide documents that HR still needs to verify.
+        const cands=all.filter(person=>person.role==='CANDIDATE'||person.documents?.length);
         setCandidates(cands);
         setSelectedCandidateId(cands[0]?.id ?? '');
         if (cands.length === 0) {
@@ -340,20 +350,20 @@ export default function Verification({ onNavigate }: VerificationProps) {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <a href={selectedDoc.fileUrl} target="_blank" rel="noreferrer" className="p-2 rounded-xl hover:bg-slate-100 transition-colors tooltip text-slate-500" title="View Full">
+                      <ProtectedFileLink value={selectedDoc.fileUrl} className="p-2 rounded-xl hover:bg-slate-100 transition-colors tooltip text-slate-500" title="View Full">
                         <ZoomIn size={16} />
-                      </a>
+                      </ProtectedFileLink>
                     </div>
                   </div>
 
                   {/* Document Preview */}
                   <div className="p-6">
                     <div className="rounded-2xl overflow-hidden mb-5 bg-slate-50 border border-slate-200 flex items-center justify-center relative group" style={{ minHeight: 380 }}>
-                      {selectedDoc.fileType?.includes('PDF') ? (
-                        <iframe src={selectedDoc.fileUrl} className="w-full h-full absolute inset-0" title={selectedDoc.label} />
+                      {preview.error ? <p role="alert" className="p-5 text-sm text-red-600">{preview.error}</p> : !preview.url ? <p className="text-sm text-slate-500">Loading document…</p> : selectedDoc.fileType?.toUpperCase().includes('PDF') ? (
+                        <iframe src={preview.url} className="w-full h-full absolute inset-0" title={selectedDoc.label} />
                       ) : (
-                        <a href={selectedDoc.fileUrl} target="_blank" rel="noreferrer" className="w-full h-full absolute inset-0 block cursor-zoom-in">
-                          <img src={selectedDoc.fileUrl} alt={selectedDoc.label} className="max-w-full max-h-full object-contain absolute inset-0 m-auto" style={{ maxHeight: 380 }} />
+                        <a href={preview.url} target="_blank" rel="noreferrer" className="w-full h-full absolute inset-0 block cursor-zoom-in">
+                          <img src={preview.url} alt={selectedDoc.label} className="max-w-full max-h-full object-contain absolute inset-0 m-auto" style={{ maxHeight: 380 }} />
                           <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center">
                             <ZoomIn size={40} className="text-white mb-2 shadow-lg" />
                             <p className="text-white font-medium text-sm shadow-sm">Click to View Full Screen</p>

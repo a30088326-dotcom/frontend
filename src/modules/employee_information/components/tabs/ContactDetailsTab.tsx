@@ -71,6 +71,10 @@ export default function ContactDetailsTab({ data, update }: { data: any, update:
               <input type="text" className="w-full p-2 border border-slate-200 rounded-lg" value={data?.personal?.mobile || ''} onChange={e => handleChange('personal', 'mobile', e.target.value)} />
             </div>
             <div>
+              <label className="text-xs font-bold text-slate-500 mb-1 block" htmlFor="employee-alternate-phone">Alternate Phone</label>
+              <input id="employee-alternate-phone" type="text" className="w-full p-2 border border-slate-200 rounded-lg" value={data?.personal?.alternatePhone || ''} onChange={e => handleChange('personal', 'alternatePhone', e.target.value)} />
+            </div>
+            <div>
               <label className="text-xs font-bold text-slate-500 mb-1 block">Personal Email</label>
               <input type="email" className="w-full p-2 border border-slate-200 rounded-lg" value={data?.personal?.email || ''} onChange={e => handleChange('personal', 'email', e.target.value)} />
             </div>
