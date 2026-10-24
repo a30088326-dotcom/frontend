@@ -106,7 +106,7 @@ export default function Dashboard({ employee, loading, onNavigate, onTabNavigate
     dateJoined: employmentDetails?.dateJoined ? new Date(employmentDetails.dateJoined).toLocaleDateString() : 'N/A',
     officeLocation: employee.workstationDetails?.locationName || 'N/A',
     reportingManager: employmentDetails?.reportingManager || 'N/A',
-    profilePicture: personalDetails?.profilePicture || null
+    profilePicture: personalDetails?.profilePicture || employee.avatar || null
   };
 
   const accessibleModules = ACCESS_MODULES.filter(module => {

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode, type ImgHTMLAttributes } from 'react';
 import { api } from '../lib/api/client';
 
 export function protectedFilePath(value:string) {
@@ -26,6 +26,13 @@ export function useProtectedFile(value?:string) {
     return()=>{active=false;if(url)URL.revokeObjectURL(url);};
   },[value]);
   return state.source===value?state:{source:value||'',url:'',error:''};
+}
+export function ProtectedImage({src,alt='',className,...props}:ImgHTMLAttributes<HTMLImageElement>) {
+  const stored=typeof src==='string'&&/^(?:https?:\/\/[^/]+)?\/(?:api\/files|uploads)\//.test(src);
+  const file=useProtectedFile(stored?src:undefined);
+  const url=stored?file.url:src;
+  if(!url)return <span role="img" aria-label={alt||'Profile image'} className={className}>{(alt||'User').charAt(0).toUpperCase()}</span>;
+  return <img {...props} src={url} alt={alt} className={className}/>;
 }
 export function ProtectedFileLink({value,children,className,title}:{value:string;children:ReactNode;className?:string;title?:string}) {
   const [busy,setBusy]=useState(false),[error,setError]=useState('');

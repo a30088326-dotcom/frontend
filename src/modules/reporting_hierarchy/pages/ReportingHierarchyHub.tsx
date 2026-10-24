@@ -7,6 +7,7 @@ import { reportingHierarchyApi } from '../../../lib/api/reportingHierarchy';
 import { useAuth } from '../../../context/AuthContext';
 import OrgChartNode from '../components/OrgChartNode';
 import AssignManagerModal from '../components/AssignManagerModal';
+import { ProtectedImage } from '../../../components/ProtectedFile';
 
 export default function ReportingHierarchyHub() {
   const [activeTab, setActiveTab] = useState<'chart' | 'directory' | 'audit'>('chart');
@@ -575,7 +576,7 @@ export default function ReportingHierarchyHub() {
                       <div className="flex items-start gap-3">
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white font-black text-sm shadow-sm shrink-0 overflow-hidden">
                           {emp.avatar ? (
-                            <img src={emp.avatar} alt={emp.name} className="w-full h-full object-cover" />
+                            <ProtectedImage src={emp.avatar} alt={emp.name} className="w-full h-full object-cover" />
                           ) : (
                             (emp.name || (emp as any).fullName || "E").charAt(0).toUpperCase()
                           )}
