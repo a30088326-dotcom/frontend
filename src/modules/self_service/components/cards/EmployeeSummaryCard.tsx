@@ -1,4 +1,5 @@
 import { User, Briefcase, Mail, Phone, Calendar, MapPin } from 'lucide-react';
+import { ProtectedImage } from '../../../../components/ProtectedFile';
 
 export default function EmployeeSummaryCard({ displayData }: { displayData: any }) {
   return (
@@ -8,7 +9,7 @@ export default function EmployeeSummaryCard({ displayData }: { displayData: any 
         {/* Avatar */}
         <div className="w-32 h-32 rounded-2xl bg-slate-100 border-4 border-white shadow-lg flex items-center justify-center flex-shrink-0">
           {displayData.profilePicture ? (
-            <img src={displayData.profilePicture} alt="Profile" className="w-full h-full object-cover rounded-xl" />
+            <ProtectedImage src={displayData.profilePicture} alt="Profile" className="w-full h-full object-cover rounded-xl" />
           ) : (
             <User size={48} className="text-slate-400" />
           )}

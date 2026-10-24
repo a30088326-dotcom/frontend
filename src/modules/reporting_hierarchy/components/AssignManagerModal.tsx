@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { X, Search, AlertCircle, Calendar } from 'lucide-react';
 import { reportingHierarchyApi } from '../../../lib/api/reportingHierarchy';
 import { HierarchyEmployee } from '../../../types';
+import { ProtectedImage } from '../../../components/ProtectedFile';
 
 interface AssignManagerModalProps {
   onClose: () => void;
@@ -144,7 +145,7 @@ export default function AssignManagerModal({ onClose, onSuccess, initialEmployee
                           className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 transition-colors border-b border-slate-50 last:border-0"
                         >
                           <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
-                            {emp.avatar ? <img src={emp.avatar} alt="" className="w-full h-full object-cover" /> : (emp.name || (emp as any).fullName || "E").charAt(0).toUpperCase()}
+                            {emp.avatar ? <ProtectedImage src={emp.avatar} alt="" className="w-full h-full object-cover" /> : (emp.name || (emp as any).fullName || "E").charAt(0).toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-bold text-slate-800 truncate">{emp.name}</div>
@@ -161,7 +162,7 @@ export default function AssignManagerModal({ onClose, onSuccess, initialEmployee
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black shadow-md overflow-hidden shrink-0">
                       {employees.find(e => e.id === selectedEmployeeId)?.avatar ? 
-                        <img src={employees.find(e => e.id === selectedEmployeeId)?.avatar!} alt="" className="w-full h-full object-cover" /> : 
+                        <ProtectedImage src={employees.find(e => e.id === selectedEmployeeId)?.avatar!} alt="" className="w-full h-full object-cover" /> : 
                         ((employees.find(e => e.id === selectedEmployeeId)?.name || (employees.find(e => e.id === selectedEmployeeId) as any)?.fullName || "E")).charAt(0).toUpperCase()}
                     </div>
                     <div>
@@ -228,7 +229,7 @@ export default function AssignManagerModal({ onClose, onSuccess, initialEmployee
                               className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3 transition-colors border-b border-slate-50 last:border-0"
                             >
                               <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
-                                {mgr.avatar ? <img src={mgr.avatar} alt="" className="w-full h-full object-cover" /> : (mgr.name || (mgr as any).fullName || "M").charAt(0).toUpperCase()}
+                                {mgr.avatar ? <ProtectedImage src={mgr.avatar} alt="" className="w-full h-full object-cover" /> : (mgr.name || (mgr as any).fullName || "M").charAt(0).toUpperCase()}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-bold text-slate-800 truncate">{mgr.name}</div>
@@ -244,7 +245,7 @@ export default function AssignManagerModal({ onClose, onSuccess, initialEmployee
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black shadow-md overflow-hidden shrink-0">
                           {employees.find(e => e.id === selectedManagerId)?.avatar ? 
-                            <img src={employees.find(e => e.id === selectedManagerId)?.avatar!} alt="" className="w-full h-full object-cover" /> : 
+                            <ProtectedImage src={employees.find(e => e.id === selectedManagerId)?.avatar!} alt="" className="w-full h-full object-cover" /> : 
                             ((employees.find(e => e.id === selectedManagerId)?.name || (employees.find(e => e.id === selectedManagerId) as any)?.fullName || "M")).charAt(0).toUpperCase()}
                         </div>
                         <div>

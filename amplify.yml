@@ -7,6 +7,7 @@ frontend:
         - ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci --legacy-peer-deps
     build:
       commands:
+        - node scripts/verify-hosted-env.cjs
         - npm run typecheck
         - npm run build
   artifacts:

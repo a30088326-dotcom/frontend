@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import { User, Phone, Mail, Building2, AlertCircle, UserCheck } from 'lucide-react';
 import { api } from '../../../lib/api/client';
+import { ProtectedImage } from '../../../components/ProtectedFile';
 
 export default function MyReportingManager() {
   const [manager, setManager] = useState<any>(null);
@@ -82,7 +83,7 @@ export default function MyReportingManager() {
           {/* Avatar */}
           <div className="flex-shrink-0">
             {manager.avatar ? (
-              <img src={manager.avatar} alt={manager.fullName} className="w-24 h-24 rounded-2xl object-cover shadow-md border-4 border-white" />
+              <ProtectedImage src={manager.avatar} alt={manager.fullName} className="w-24 h-24 rounded-2xl object-cover shadow-md border-4 border-white" />
             ) : (
               <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md border-4 border-white">
                 <span className="text-3xl font-black text-white">

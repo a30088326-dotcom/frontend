@@ -6,6 +6,15 @@ import {
 import { contractsApi, usersApi, type ContractData, type MemberData } from '../../../lib/api';
 import type { Screen } from '../../../types';
 import { useAuth } from '../../../context/AuthContext';
+import { useProtectedFile } from '../../../components/ProtectedFile';
+
+function SignatureImage({ value }: { value: string }) {
+  const stored = /^(?:https?:\/\/[^/]+)?\/(?:api\/files|uploads)\//.test(value);
+  const file = useProtectedFile(stored ? value : undefined);
+  if (stored && file.error) return <span role="alert" className="text-xs text-red-600">{file.error}</span>;
+  if (stored && !file.url) return <span className="text-xs text-slate-500">Loading signature…</span>;
+  return <img src={stored ? file.url : value} alt="Signature" className="max-h-full" />;
+}
 
 interface ContractSignProps {
   onNavigate: (s: Screen) => void;
@@ -255,10 +264,8 @@ export default function ContractSign({ onNavigate }: ContractSignProps) {
     setApiError('');
     try {
       const dataUrl = canvasRef.current?.toDataURL('image/png') || '';
-      await contractsApi.sign(activeContract.id, dataUrl);
-      
-      // Update local state to reflect signed status
-      setActiveContract({ ...activeContract, status: 'SIGNED', signatureUrl: dataUrl, signedAt: new Date().toISOString() });
+      const response = await contractsApi.sign(activeContract.id, dataUrl);
+      setActiveContract(response.data.data);
       setHasSigned(true);
       setJustSigned(true);
     } catch (err: any) {
@@ -583,7 +590,7 @@ export default function ContractSign({ onNavigate }: ContractSignProps) {
                 <div className="relative mb-4">
                   {activeContract?.signatureUrl ? (
                     <div className="w-full h-[140px] border-2 border-slate-200 rounded-xl flex items-center justify-center bg-slate-50">
-                      <img src={activeContract.signatureUrl} alt="Signature" className="max-h-full" />
+                      <SignatureImage value={activeContract.signatureUrl} />
                     </div>
                   ) : isAdmin ? (
                     <div className="w-full h-[140px] border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center bg-slate-50 relative group">

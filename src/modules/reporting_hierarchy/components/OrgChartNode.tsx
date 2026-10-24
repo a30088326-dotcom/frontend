@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, Users, Edit2, GripVertical , Trash2} from 'lucide-react';
 import { HierarchyNode } from '../../../types';
 import { reportingHierarchyApi } from '../../../lib/api/reportingHierarchy';
+import { ProtectedImage } from '../../../components/ProtectedFile';
 
 import { useAuth } from '../../../context/AuthContext';
 
@@ -232,7 +233,7 @@ export default function OrgChartNode({
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black text-lg shadow-inner overflow-hidden shrink-0">
               {node.avatar ? (
-                <img src={node.avatar} alt={displayName} className="w-full h-full object-cover" />
+                <ProtectedImage src={node.avatar} alt={displayName} className="w-full h-full object-cover" />
               ) : (
                 avatarLetter
               )}
